@@ -1,0 +1,36 @@
+LOAN APPROVAL & RISK ASSESSMENT - SUMMARY REPORT
+============================================================
+Best Model        : Random Forest (Base)
+Dataset Size      : 491 rows, 14 features
+Train/Test Split  : 392 / 99
+
+Metrics on test data:
+  Accuracy  : 82.83%
+  Precision : 87.14%
+  Recall    : 88.41%
+  F1 Score  : 87.77%
+  ROC-AUC   : 85.85%
+
+Model Benchmark Comparison:
+                Model Accuracy Precision Recall F1 Score ROC-AUC
+ Random Forest (Base)   82.83%    87.14% 88.41%   87.77%  85.85%
+        Decision Tree   84.85%    86.49% 92.75%   89.51%  83.62%
+Random Forest (Tuned)   81.82%    85.92% 88.41%   87.14%  83.29%
+  Logistic Regression   85.86%    85.71% 95.65%   90.41%  83.00%
+    Gradient Boosting   82.83%    85.14% 91.30%   88.11%  82.75%
+
+Feature Importance Ranking:
+  - Credit_History           : 0.3766
+  - Loan_to_Income_Ratio     : 0.1408
+  - Total_Income             : 0.1106
+  - ApplicantIncome          : 0.0894
+  - LoanAmount               : 0.0735
+  - CoapplicantIncome        : 0.0623
+  - Property_Area_Semiurban  : 0.0334
+  - Dependents               : 0.0289
+  - Married                  : 0.0251
+  - Education                : 0.0155
+  - Gender                   : 0.0151
+  - Property_Area_Urban      : 0.0119
+  - Loan_Amount_Term         : 0.0118
+  - Self_Employed            : 0.0050
