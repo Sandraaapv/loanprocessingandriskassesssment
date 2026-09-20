@@ -1,46 +1,45 @@
-# Loan Approval and Risk Assessment System
+# Loan Approval & Risk Assessment Dashboard
 
-Machine learning model for loan decisioning, risk evaluation, and model benchmarking.
+Automated credit risk evaluation model using a FastAPI backend and a React (Vite) frontend.
+
+## Architecture
+
+This project has been upgraded from a Streamlit script into a full-stack application to provide a more robust and scalable architecture:
+- **Frontend (`/frontend`)**: React application bootstrapped with Vite, styled with Tailwind CSS, and using Recharts for data visualization. Matches the exact dark-themed design system.
+- **Backend (`/backend`)**: FastAPI server that serves the trained Random Forest model and exposes endpoints for predictions and model performance metrics.
+- **Machine Learning**: Scikit-Learn pipeline (`loan_model.py`) that handles data preprocessing, training multiple models, hyperparameter tuning, and serializing the best model.
 
 ## Setup & Running
 
-### 1. Install dependencies
+### 1. Backend (FastAPI)
+The backend runs the machine learning model and serves the API.
+
 ```bash
+# Navigate to the backend directory
+cd backend
+
+# Install dependencies
 pip install -r requirements.txt
+
+# Run the server (starts on http://localhost:8000)
+python -m uvicorn main:app --reload
 ```
 
-### 2. Run the training pipeline
+### 2. Frontend (React)
+The frontend serves the user interface.
+
 ```bash
-python loan_model.py
+# Navigate to the frontend directory
+cd frontend
+
+# Install dependencies
+npm install
+
+# Run the development server (starts on http://localhost:3000)
+npm run dev -- --port 3000
 ```
-Trains multiple models (Logistic Regression, Decision Tree, Random Forest, Gradient Boosting), performs hyperparameter search, and exports model artifacts (`loan_rf_model.joblib`, `feature_columns.joblib`) along with evaluation plots.
 
-### 3. Launch the dashboard
-```bash
-streamlit run app.py
-```
-Opens the Streamlit dashboard for evaluating applicant data, viewing confidence scores, and inspecting model performance analytics.
-
-## Files
-
-- `loan_model.py` — Training and evaluation pipeline
-- `app.py` — Streamlit dashboard
-- `loan_train.csv` — Dataset (491 loan applications)
-- `loan_rf_model.joblib` — Trained model artifact
-- `feature_columns.joblib` — Feature schema
-- `model_comparison.png` — Model comparison chart
-- `confusion_matrix.png` — Confusion matrix plot
-- `feature_importance.png` — Feature importance ranking
-- `roc_curve.png` — ROC curve comparison
-- `results_summary.txt` — Summary report
-- `PRESENTATION_GUIDE.md` — Presentation guide
-
-## Model Performance
-
-| Model | Accuracy | Precision | Recall | F1 Score | ROC-AUC |
-|---|---|---|---|---|---|
-| Random Forest (Base) | 82.83% | 87.14% | 88.41% | 87.77% | 85.85% |
-| Decision Tree | 84.85% | 86.49% | 92.75% | 89.51% | 83.62% |
-| Random Forest (Tuned) | 81.82% | 85.92% | 88.41% | 87.14% | 83.29% |
-| Logistic Regression | 85.86% | 85.71% | 95.65% | 90.41% | 83.00% |
-| Gradient Boosting | 82.83% | 85.14% | 91.30% | 88.11% | 82.75% |
+## Features
+- **Applicant Assessment**: Interactive form to input applicant details and receive an immediate risk assessment.
+- **Model Performance**: Visualizations of the model's accuracy, feature importances, and ROC curve.
+- **Documentation**: Detailed explanation of the dataset, methodology, and API reference.

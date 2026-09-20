@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-bg: #F9F6F0; 
+    --color-card: rgba(255, 255, 255, 0.6);
+    --color-border: rgba(255, 255, 255, 0.4);
+    --color-text-main: #111827;
+    --color-text-muted: #6B7280;
+    --color-input-bg: rgba(255, 255, 255, 0.8);
+    --color-input-border: #E5E0D8;
+    
+    --aurora-1: rgba(255, 182, 193, 0.4);
+    --aurora-2: rgba(230, 230, 250, 0.4);
+  }
+
+  .dark {
+    --color-bg: #000000;
+    --color-card: rgba(255, 255, 255, 0.03);
+    --color-border: rgba(255, 255, 255, 0.08);
+    --color-text-main: #FFFFFF;
+    --color-text-muted: #9CA3AF;
+    --color-input-bg: #1A1A1A;
+    --color-input-border: #1F1F1F;
+
+    --aurora-1: rgba(255, 90, 78, 0.06);
+    --aurora-2: rgba(139, 92, 246, 0.06);
+  }
+
+  body {
+    @apply antialiased transition-colors duration-500;
+    background-color: var(--color-bg);
+    color: var(--color-text-main);
+    overflow-x: hidden;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    background: linear-gradient(to right, #FF5A4E, #8B5CF6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .glass-card {
+    background-color: var(--color-card);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--color-border);
+  }
+}
+
+/* Ambient Aurora Background */
+.aurora-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.aurora-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  animation: drift 25s infinite alternate ease-in-out;
+  opacity: 0.8;
+}
+
+.aurora-blob-1 {
+  width: 60vw;
+  height: 60vw;
+  background: var(--aurora-1);
+  top: -20%;
+  left: -10%;
+  animation-delay: 0s;
+}
+
+.aurora-blob-2 {
+  width: 50vw;
+  height: 50vw;
+  background: var(--aurora-2);
+  bottom: -10%;
+  right: -10%;
+  animation-delay: -5s;
+}
+
+@keyframes drift {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(5%, 10%) scale(1.1); }
+  100% { transform: translate(-10%, 5%) scale(0.9); }
+}
