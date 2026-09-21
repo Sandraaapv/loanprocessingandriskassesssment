@@ -1,0 +1,44 @@
+{
+  "best_model": "Production Ensemble (RF+ET+GB)",
+  "metrics": {
+    "Accuracy": 95.3,
+    "Precision": 95.3,
+    "Recall": 97.8,
+    "F1_Score": 96.5,
+    "ROC_AUC": 98.1
+  },
+  "feature_importances": [
+    {
+      "feature": "Credit_History",
+      "importance": 0.5326
+    },
+    {
+      "feature": "DTI",
+      "importance": 0.1853
+    },
+    {
+      "feature": "Loan_to_Income_Ratio",
+      "importance": 0.0694
+    },
+    {
+      "feature": "EMI",
+      "importance": 0.0381
+    },
+    {
+      "feature": "Total_Income",
+      "importance": 0.0344
+    },
+    {
+      "feature": "ApplicantIncome",
+      "importance": 0.0325
+    },
+    {
+      "feature": "LoanAmount",
+      "importance": 0.0315
+    },
+    {
+      "feature": "Loan_Amount_Term",
+      "importance": 0.0308
+    }
+  ]
+}

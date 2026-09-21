@@ -8,7 +8,9 @@ export default function ResultsPanel({ data, formData }) {
     risk_category, 
     approval_probability, 
     risk_score, 
-    key_factors 
+    key_factors,
+    estimated_emi,
+    debt_to_income_pct
   } = data;
 
   // Determine colors based on status
@@ -95,6 +97,22 @@ export default function ResultsPanel({ data, formData }) {
           </div>
         </div>
       </div>
+
+      {/* EMI & Affordability Insight */}
+      {estimated_emi && (
+        <div className="mb-8 p-5 bg-black/5 dark:bg-white/5 rounded-2xl border border-inputBorder flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="text-[11px] uppercase tracking-wider text-textMuted font-bold mb-1">Standard Equated Monthly Installment (EMI)</div>
+            <div className="text-xl font-bold font-display text-accent">₹{Number(estimated_emi).toLocaleString('en-IN')}<span className="text-xs font-normal text-textMuted"> / month (@ 8.5% p.a.)</span></div>
+          </div>
+          <div>
+            <div className="text-[11px] uppercase tracking-wider text-textMuted font-bold mb-1">Debt-to-Income (DTI) Impact</div>
+            <div className="text-xl font-bold font-display text-textMain">{debt_to_income_pct}% <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+              debt_to_income_pct <= 35 ? 'bg-green-500/10 text-green-500' : debt_to_income_pct <= 50 ? 'bg-yellow-500/10 text-yellow-500' : 'bg-red-500/10 text-red-500'
+            }`}>{debt_to_income_pct <= 35 ? 'Healthy Debt' : debt_to_income_pct <= 50 ? 'Moderate Debt' : 'High Debt'}</span></div>
+          </div>
+        </div>
+      )}
 
       {/* Key Factors */}
       <div>

@@ -56,16 +56,25 @@ export default function AssessmentForm() {
   const completedFields = fields.filter(k => formData[k] !== '' && formData[k] !== null).length;
   const progressPercent = Math.round((completedFields / fields.length) * 100);
 
-  // EMI logic
-  const estimatedEMI = useMemo(() => {
-    if (formData.LoanAmount > 0 && formData.Loan_Amount_Term > 0) {
-      // Very simple approximation: (Principal * 1000) / Term (ignore interest for this mockup)
-      return Math.round((formData.LoanAmount * 1000) / formData.Loan_Amount_Term);
+  // Standard Banking Reducing-Balance EMI Calculation (@ 8.5% p.a.)
+  const ANNUAL_RATE = 0.085;
+  const monthlyRate = ANNUAL_RATE / 12;
+
+  const { estimatedEMI, totalRepayment, totalInterest } = useMemo(() => {
+    const p = (Number(formData.LoanAmount) || 0) * 1000;
+    const n = Number(formData.Loan_Amount_Term) || 0;
+    if (p > 0 && n > 0) {
+      const emi = (p * monthlyRate * Math.pow(1 + monthlyRate, n)) / Math.max(Math.pow(1 + monthlyRate, n) - 1, 1e-5);
+      const roundedEmi = Math.round(emi);
+      const total = roundedEmi * n;
+      const interest = Math.max(0, total - p);
+      return { estimatedEMI: roundedEmi, totalRepayment: total, totalInterest: interest };
     }
-    return 0;
-  }, [formData.LoanAmount, formData.Loan_Amount_Term]);
+    return { estimatedEMI: 0, totalRepayment: 0, totalInterest: 0 };
+  }, [formData.LoanAmount, formData.Loan_Amount_Term, monthlyRate]);
 
   const totalIncome = (Number(formData.ApplicantIncome) || 0) + (Number(formData.CoapplicantIncome) || 0);
+  const dtiRatio = totalIncome > 0 && estimatedEMI > 0 ? ((estimatedEMI / totalIncome) * 100).toFixed(1) : '0.0';
   const ltiRatio = formData.LoanAmount ? (formData.LoanAmount / (totalIncome / 1000 + 1e-5)).toFixed(2) : '0.00';
 
   const handleSubmit = async (e) => {
@@ -195,9 +204,24 @@ export default function AssessmentForm() {
                 </div>
                 <div className="md:col-span-2 pt-2 text-center text-sm text-textMuted font-medium">
                   {estimatedEMI > 0 ? (
-                    <span className="text-accent bg-accent/10 px-3 py-1 rounded-full">Estimated EMI: ~₹{estimatedEMI.toLocaleString('en-IN')}/mo</span>
+                    <div className="flex flex-wrap items-center justify-center gap-3">
+                      <span className="text-accent bg-accent/10 px-4 py-1.5 rounded-full font-semibold">
+                        Reducing EMI: ~₹{estimatedEMI.toLocaleString('en-IN')}/mo (@ 8.5% p.a.)
+                      </span>
+                      {Number(dtiRatio) > 0 && (
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          Number(dtiRatio) <= 35 
+                            ? 'bg-green-500/10 text-green-500 border border-green-500/20' 
+                            : Number(dtiRatio) <= 50 
+                            ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20' 
+                            : 'bg-red-500/10 text-red-500 border border-red-500/20'
+                        }`}>
+                          DTI Burden: {dtiRatio}% ({Number(dtiRatio) <= 35 ? 'Healthy' : Number(dtiRatio) <= 50 ? 'Moderate' : 'High'})
+                        </span>
+                      )}
+                    </div>
                   ) : (
-                    <span>Enter loan amount and term for EMI estimate</span>
+                    <span>Enter loan amount and term for standard banking EMI estimate</span>
                   )}
                 </div>
               </div>
