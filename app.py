@@ -238,9 +238,9 @@ with tab1:
             <div class="card">
                 <div class="card-header">Financial Profile</div>
         """, unsafe_allow_html=True)
-        applicant_income = st.number_input("Applicant Monthly Income ($)", min_value=0, value=4500, step=250)
-        coapplicant_income = st.number_input("Coapplicant Monthly Income ($)", min_value=0, value=1500, step=250)
-        loan_amount = st.number_input("Loan Amount ($ in thousands)", min_value=10, value=150, step=10)
+        applicant_income = st.number_input("Applicant Monthly Income (₹)", min_value=0, value=4500, step=250)
+        coapplicant_income = st.number_input("Coapplicant Monthly Income (₹)", min_value=0, value=1500, step=250)
+        loan_amount = st.number_input("Loan Amount (₹ in thousands)", min_value=10, value=150, step=10)
         loan_term = st.selectbox("Loan Term (Months)", [360, 240, 180, 120, 60], index=0)
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -336,7 +336,7 @@ with tab1:
                 st.markdown(f"""
                     <div class="card">
                         <div class="stat-label">Total Monthly Income</div>
-                        <div class="stat-value">${total_income:,.0f}</div>
+                        <div class="stat-value">₹{total_income:,.0f}</div>
                     </div>
                 """, unsafe_allow_html=True)
 
@@ -353,7 +353,7 @@ with tab1:
                 st.markdown(f"""
                     <div class="card">
                         <div class="stat-label">Est. Monthly Repayment</div>
-                        <div class="stat-value">${est_monthly_payment:,.0f}/mo</div>
+                        <div class="stat-value">₹{est_monthly_payment:,.0f}/mo</div>
                     </div>
                 """, unsafe_allow_html=True)
 
@@ -371,12 +371,12 @@ with tab1:
                 concerns.append(f"Elevated loan-to-income ratio ({lti_ratio:.2f})")
 
             if total_income >= 5000:
-                strengths.append(f"Household income (${total_income:,.0f})")
+                strengths.append(f"Household income (₹{total_income:,.0f})")
             else:
-                concerns.append(f"Lower household income (${total_income:,.0f})")
+                concerns.append(f"Lower household income (₹{total_income:,.0f})")
 
             if married_val == 1 and coapplicant_income > 0:
-                strengths.append(f"Coapplicant income (${coapplicant_income:,.0f})")
+                strengths.append(f"Coapplicant income (₹{coapplicant_income:,.0f})")
 
             s_col, c_col = st.columns(2)
             with s_col:

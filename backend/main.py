@@ -117,9 +117,9 @@ def predict(data: ApplicantData):
         concerns.append({"factor": f"Elevated loan-to-income ratio ({lti_ratio:.2f})", "type": "negative"})
 
     if total_income >= 5000:
-        strengths.append({"factor": f"Household income (${total_income:,.0f})", "type": "positive"})
+        strengths.append({"factor": f"Household income (₹{total_income:,.0f})", "type": "positive"})
     else:
-        concerns.append({"factor": f"Lower household income (${total_income:,.0f})", "type": "negative"})
+        concerns.append({"factor": f"Lower household income (₹{total_income:,.0f})", "type": "negative"})
 
     # Return key factors (max 3-5 combined)
     key_factors = (strengths + concerns)[:5]

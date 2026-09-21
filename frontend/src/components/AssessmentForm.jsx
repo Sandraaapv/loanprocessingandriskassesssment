@@ -160,18 +160,18 @@ export default function AssessmentForm() {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
-                <label className="block text-xs uppercase tracking-wider text-textMuted font-bold mb-3">Applicant Monthly Income ($)</label>
+                <label className="block text-xs uppercase tracking-wider text-textMuted font-bold mb-3">Applicant Monthly Income (₹)</label>
                 <input type="number" name="ApplicantIncome" value={formData.ApplicantIncome} onChange={handleChange} min="0" placeholder="e.g. 4500" 
                   className="w-full bg-inputBg border border-inputBorder rounded-xl text-textMain p-4 focus:ring-0 focus:shadow-input-focus outline-none transition-shadow" />
               </div>
               <div>
-                <label className="block text-xs uppercase tracking-wider text-textMuted font-bold mb-3">Coapplicant Monthly Income ($)</label>
+                <label className="block text-xs uppercase tracking-wider text-textMuted font-bold mb-3">Coapplicant Monthly Income (₹)</label>
                 <input type="number" name="CoapplicantIncome" value={formData.CoapplicantIncome} onChange={handleChange} min="0" placeholder="e.g. 1500" 
                   className="w-full bg-inputBg border border-inputBorder rounded-xl text-textMain p-4 focus:ring-0 focus:shadow-input-focus outline-none transition-shadow" />
               </div>
               <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8 bg-black/5 dark:bg-white/5 p-6 rounded-2xl">
                 <div>
-                  <label className="block text-xs uppercase tracking-wider text-textMuted font-bold mb-3">Loan Amount ($ in thousands)</label>
+                  <label className="block text-xs uppercase tracking-wider text-textMuted font-bold mb-3">Loan Amount (₹ in thousands)</label>
                   <input type="number" name="LoanAmount" value={formData.LoanAmount} onChange={handleChange} min="10" placeholder="e.g. 150" 
                     className="w-full bg-inputBg border border-inputBorder rounded-xl text-textMain p-4 focus:ring-0 focus:shadow-input-focus outline-none transition-shadow" />
                 </div>
@@ -194,7 +194,7 @@ export default function AssessmentForm() {
                 </div>
                 <div className="md:col-span-2 pt-2 text-center text-sm text-textMuted font-medium">
                   {estimatedEMI > 0 ? (
-                    <span className="text-accent bg-accent/10 px-3 py-1 rounded-full">Estimated EMI: ~${estimatedEMI.toLocaleString()}/mo</span>
+                    <span className="text-accent bg-accent/10 px-3 py-1 rounded-full">Estimated EMI: ~₹{estimatedEMI.toLocaleString('en-IN')}/mo</span>
                   ) : (
                     <span>Enter loan amount and term for EMI estimate</span>
                   )}
@@ -252,7 +252,7 @@ export default function AssessmentForm() {
         <div className="space-y-6">
           <div>
             <div className="text-xs text-textMuted mb-1">Total Household Income</div>
-            <div className="text-2xl font-bold font-display">${totalIncome.toLocaleString()}</div>
+            <div className="text-2xl font-bold font-display">₹{totalIncome.toLocaleString('en-IN')}</div>
           </div>
           <div>
             <div className="text-xs text-textMuted mb-1">Loan-to-Income Ratio</div>
@@ -260,7 +260,7 @@ export default function AssessmentForm() {
           </div>
           <div>
             <div className="text-xs text-textMuted mb-1">Estimated EMI</div>
-            <div className="text-2xl font-bold font-display text-secondaryAccent">${estimatedEMI > 0 ? estimatedEMI.toLocaleString() : '0'}</div>
+            <div className="text-2xl font-bold font-display text-secondaryAccent">₹{estimatedEMI > 0 ? estimatedEMI.toLocaleString('en-IN') : '0'}</div>
           </div>
         </div>
       </aside>
