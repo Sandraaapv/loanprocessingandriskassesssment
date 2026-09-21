@@ -15,9 +15,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Paths to artifacts (assuming backend is inside project root)
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "loan_rf_model.joblib")
-COLS_PATH = os.path.join(os.path.dirname(__file__), "..", "feature_columns.joblib")
+# Paths to artifacts (robust across different working directories and deployment layouts)
+def find_artifact(filename):
+    candidates = [
+        os.path.join(os.path.dirname(__file__), filename),
+        os.path.join(os.path.dirname(__file__), "..", filename),
+        os.path.join(os.getcwd(), filename),
+        os.path.join(os.getcwd(), "backend", filename),
+    ]
+    for p in candidates:
+        if os.path.exists(p):
+            return p
+    return os.path.join(os.path.dirname(__file__), "..", filename)
+
+MODEL_PATH = find_artifact("loan_rf_model.joblib")
+COLS_PATH = find_artifact("feature_columns.joblib")
 
 # Load model and columns at startup
 model = None
@@ -26,9 +38,9 @@ try:
     if os.path.exists(MODEL_PATH) and os.path.exists(COLS_PATH):
         model = joblib.load(MODEL_PATH)
         feature_cols = joblib.load(COLS_PATH)
-        print("Model artifacts loaded successfully.")
+        print(f"Model artifacts loaded successfully from {MODEL_PATH}")
     else:
-        print("Model artifacts not found. Please train the model first.")
+        print(f"Model artifacts not found at {MODEL_PATH} / {COLS_PATH}.")
 except Exception as e:
     print(f"Error loading model: {e}")
 

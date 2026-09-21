@@ -4,6 +4,7 @@ import {
   LineChart, Line
 } from 'recharts';
 import { useTheme } from './ThemeProvider';
+import { API_BASE_URL } from '../config';
 
 export default function ModelPerformance() {
   const [data, setData] = useState(null);
@@ -13,7 +14,7 @@ export default function ModelPerformance() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const response = await fetch('http://localhost:8000/model-performance');
+        const response = await fetch(`${API_BASE_URL}/model-performance`);
         const result = await response.json();
         setData(result);
       } catch (err) {

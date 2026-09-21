@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
-import { User, Wallet, ShieldCheck, Check } from 'lucide-react';
+import { User, Wallet, ShieldCheck, Check, Sparkles, ArrowRight, RefreshCw } from 'lucide-react';
 import ResultsPanel from './ResultsPanel';
+import { API_BASE_URL } from '../config';
 
 const PillToggle = ({ options, value, onChange, name }) => (
   <div className="flex bg-inputBg p-1 rounded-xl border border-inputBorder w-full sm:w-auto overflow-x-auto no-scrollbar">
@@ -84,7 +85,7 @@ export default function AssessmentForm() {
     setResult(null);
 
     try {
-      const response = await fetch('http://localhost:8000/predict', {
+      const response = await fetch(`${API_BASE_URL}/predict`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
