@@ -1,27 +1,27 @@
 [
   {
     "feature": "Credit_History",
-    "importance": 0.5484
+    "importance": 0.5511
   },
   {
     "feature": "ApplicantIncome",
-    "importance": 0.1833
+    "importance": 0.1825
   },
   {
     "feature": "LoanAmount",
-    "importance": 0.0904
+    "importance": 0.0899
   },
   {
     "feature": "CoapplicantIncome",
-    "importance": 0.0845
+    "importance": 0.0858
   },
   {
     "feature": "Married_enc",
-    "importance": 0.0269
+    "importance": 0.0254
   },
   {
     "feature": "Loan_Amount_Term",
-    "importance": 0.0156
+    "importance": 0.0159
   },
   {
     "feature": "Dependents_num",
@@ -29,18 +29,18 @@
   },
   {
     "feature": "Property_Area_enc",
-    "importance": 0.0126
+    "importance": 0.0119
   },
   {
     "feature": "Education_enc",
-    "importance": 0.0111
-  },
-  {
-    "feature": "Gender_enc",
-    "importance": 0.0058
+    "importance": 0.0108
   },
   {
     "feature": "Self_Employed_enc",
-    "importance": 0.0057
+    "importance": 0.0056
+  },
+  {
+    "feature": "Gender_enc",
+    "importance": 0.0055
   }
 ]

@@ -24,6 +24,11 @@ MODEL_DIR = BASE / "model"
 DATA_DIR = BASE / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
+CSV_FILE = BASE / "loan_dataset.csv"
+DATA_DICT_FILE = BASE / "data_dictionary.json"
+MANIFEST_FILE = MODEL_DIR / "training_manifest.json"
+ANNUAL_RATE = 8.5
+
 USERS_FILE = DATA_DIR / "users.json"
 APPS_FILE = DATA_DIR / "applications.json"
 
@@ -39,6 +44,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.mount("/static", StaticFiles(directory=str(MODEL_DIR)), name="static")
+if (FRONTEND_DIR / "utils").exists():
+    app.mount("/utils", StaticFiles(directory=str(FRONTEND_DIR / "utils")), name="utils")
 
 # ---------------- Load model artifacts ----------------
 model = joblib.load(MODEL_DIR / "loan_rf_model.joblib")
@@ -328,13 +335,128 @@ def model_performance():
         "feature_importance": feature_importance,
     }
 
+# ---------------- Dataset & Health endpoints ----------------
+def get_health_status():
+    manifest = read_json(MANIFEST_FILE) if MANIFEST_FILE.exists() else {}
+    current_hash = ""
+    rows = 0
+    if CSV_FILE.exists():
+        current_hash = hashlib.sha256(CSV_FILE.read_bytes()).hexdigest()
+        try:
+            with open(CSV_FILE, "r") as f:
+                rows = sum(1 for _ in f) - 1
+        except Exception:
+            rows = manifest.get("row_count", 5000)
+    manifest_hash = manifest.get("dataset_sha256", "")
+    hash_matches = (current_hash == manifest_hash) and bool(current_hash)
+    return {
+        "status": "ok",
+        "model_loaded": model is not None,
+        "dataset_rows": rows or manifest.get("row_count", 5000),
+        "dataset_sha256": current_hash,
+        "trained_at": manifest.get("trained_at", ""),
+        "best_model": best_model_name,
+        "annual_rate": ANNUAL_RATE,
+        "hash_matches_dataset": hash_matches,
+    }
+
+@app.get("/health")
+def health():
+    return get_health_status()
+
+@app.get("/api/health")
+def api_health():
+    return get_health_status()
+
+@app.get("/dataset/summary")
+def dataset_summary():
+    if not DATA_DICT_FILE.exists():
+        raise HTTPException(404, "Data dictionary not found")
+    return read_json(DATA_DICT_FILE)
+
+@app.get("/dataset/sample")
+def dataset_sample(n: int = 10):
+    if not CSV_FILE.exists():
+        raise HTTPException(404, "Dataset not found")
+    df = pd.read_csv(CSV_FILE)
+    n = max(1, min(n, 100))
+    sample_df = df.sample(min(n, len(df)), random_state=None)
+    sample_records = sample_df.fillna("").to_dict(orient="records")
+    return {"samples": sample_records, "count": len(sample_records)}
+
+@app.get("/dataset/stats")
+def dataset_stats():
+    if not CSV_FILE.exists():
+        raise HTTPException(404, "Dataset not found")
+    df = pd.read_csv(CSV_FILE)
+    total = len(df)
+    approved = int((df["Loan_Status"] == "Y").sum())
+    overall_approval_rate = round((approved / total) * 100, 2) if total > 0 else 0
+
+    def calc_rate_by(col):
+        res = {}
+        for val, group in df.groupby(col):
+            appr = int((group["Loan_Status"] == "Y").sum())
+            cnt = len(group)
+            res[str(val)] = {
+                "total": cnt,
+                "approved": appr,
+                "rate": round((appr / cnt) * 100, 1) if cnt > 0 else 0
+            }
+        return res
+
+    buckets = {
+        "< ₹1 Lakh (<100)": {"total": 0, "approved": 0},
+        "₹1 - ₹1.5 Lakh (100-150)": {"total": 0, "approved": 0},
+        "₹1.5 - ₹2 Lakh (150-200)": {"total": 0, "approved": 0},
+        "> ₹2 Lakh (>200)": {"total": 0, "approved": 0},
+    }
+    for _, row in df.iterrows():
+        la = row.get("LoanAmount", 0)
+        appr = (row.get("Loan_Status") == "Y")
+        if la < 100:
+            b = "< ₹1 Lakh (<100)"
+        elif la <= 150:
+            b = "₹1 - ₹1.5 Lakh (100-150)"
+        elif la <= 200:
+            b = "₹1.5 - ₹2 Lakh (150-200)"
+        else:
+            b = "> ₹2 Lakh (>200)"
+        buckets[b]["total"] += 1
+        if appr:
+            buckets[b]["approved"] += 1
+
+    amount_buckets = {}
+    for k, v in buckets.items():
+        cnt = v["total"]
+        appr = v["approved"]
+        amount_buckets[k] = {
+            "total": cnt,
+            "approved": appr,
+            "rate": round((appr / cnt) * 100, 1) if cnt > 0 else 0
+        }
+
+    return {
+        "total_rows": total,
+        "total_approved": approved,
+        "overall_approval_rate": overall_approval_rate,
+        "by_property_area": calc_rate_by("Property_Area"),
+        "by_education": calc_rate_by("Education"),
+        "by_credit_history": calc_rate_by("Credit_History"),
+        "by_self_employed": calc_rate_by("Self_Employed"),
+        "by_loan_amount_bucket": amount_buckets
+    }
+
 @app.get("/")
 def root():
     if INDEX_HTML.exists():
-        return FileResponse(INDEX_HTML)
-    return {"status": "ok", "message": "Loan Approval & Risk Assessment API running"}
-
-@app.get("/api/health")
-def health():
+        return FileResponse(
+            INDEX_HTML,
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
+        )
     return {"status": "ok", "message": "Loan Approval & Risk Assessment API running"}
 

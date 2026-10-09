@@ -1,16 +1,18 @@
-import pandas as pd
-import numpy as np
-import joblib
 import json
+import hashlib
+from datetime import datetime, timezone
+from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import joblib
 
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
-from sklearn.impute import SimpleImputer
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
     roc_auc_score, confusion_matrix, roc_curve
@@ -22,7 +24,15 @@ try:
 except ImportError:
     HAS_XGB = False
 
-df = pd.read_csv("/home/claude/loanapp/backend/loan_dataset.csv")
+BASE_DIR = Path(__file__).parent
+CSV_PATH = BASE_DIR / "loan_dataset.csv"
+MODEL_DIR = BASE_DIR / "model"
+MODEL_DIR.mkdir(exist_ok=True)
+
+# ---------------- Load Dataset ----------------
+df = pd.read_csv(CSV_PATH)
+csv_bytes = CSV_PATH.read_bytes()
+dataset_sha256 = hashlib.sha256(csv_bytes).hexdigest()
 
 # ---------------- Preprocessing ----------------
 cat_cols = ["Gender", "Married", "Dependents", "Education", "Self_Employed", "Property_Area"]
@@ -32,7 +42,6 @@ df["Self_Employed"] = df["Self_Employed"].fillna("No")
 df["Credit_History"] = df["Credit_History"].fillna(1)
 df["LoanAmount"] = df["LoanAmount"].fillna(df["LoanAmount"].median())
 
-# Map dependents "3+" -> 3 for numeric-friendly ordinal encoding, keep others
 dependents_map = {"0": 0, "1": 1, "2": 2, "3+": 3}
 df["Dependents_num"] = df["Dependents"].map(dependents_map)
 
@@ -98,82 +107,136 @@ for name, model in models.items():
     trained[name] = {"model": model, "preds": preds, "proba": proba}
     print(name, results[name])
 
-# pick best model by F1 (balances precision/recall) with recall as tiebreaker
+# Pick best model by F1 with recall as tiebreaker
 best_name = max(results, key=lambda n: (results[n]["f1"], results[n]["recall"]))
 best_model = trained[best_name]["model"]
 print("\nBest model:", best_name, results[best_name])
 
 # ---------------- Save artifacts ----------------
-joblib.dump(best_model, "/home/claude/loanapp/backend/model/loan_rf_model.joblib")
-joblib.dump(feature_cols, "/home/claude/loanapp/backend/model/feature_columns.joblib")
-joblib.dump(scaler, "/home/claude/loanapp/backend/model/scaler.joblib")
-joblib.dump(encode_maps, "/home/claude/loanapp/backend/model/encode_maps.joblib")
-joblib.dump(dependents_map, "/home/claude/loanapp/backend/model/dependents_map.joblib")
-joblib.dump(best_name, "/home/claude/loanapp/backend/model/best_model_name.joblib")
+joblib.dump(best_model, MODEL_DIR / "loan_rf_model.joblib")
+joblib.dump(feature_cols, MODEL_DIR / "feature_columns.joblib")
+joblib.dump(scaler, MODEL_DIR / "scaler.joblib")
+joblib.dump(encode_maps, MODEL_DIR / "encode_maps.joblib")
+joblib.dump(dependents_map, MODEL_DIR / "dependents_map.joblib")
+joblib.dump(best_name, MODEL_DIR / "best_model_name.joblib")
 
-with open("/home/claude/loanapp/backend/model/results_summary.json", "w") as f:
-    json.dump({"results": results, "best_model": best_name}, f, indent=2)
+results_summary = {"results": results, "best_model": best_name}
+with open(MODEL_DIR / "results_summary.json", "w") as f:
+    json.dump(results_summary, f, indent=2)
 
-# ---------------- Feature importance ----------------
+# Feature importance
 if hasattr(best_model, "feature_importances_"):
     importances = best_model.feature_importances_
 else:
     importances = np.abs(best_model.coef_[0])
 imp_pairs = sorted(zip(feature_cols, importances), key=lambda x: -x[1])
-with open("/home/claude/loanapp/backend/model/feature_importance.json", "w") as f:
+with open(MODEL_DIR / "feature_importance.json", "w") as f:
     json.dump([{"feature": f_, "importance": round(float(i), 4)} for f_, i in imp_pairs], f, indent=2)
 
-# ---------------- Charts ----------------
-plt.figure(figsize=(5, 4))
+# Training manifest
+manifest = {
+    "dataset_filename": "loan_dataset.csv",
+    "dataset_sha256": dataset_sha256,
+    "row_count": int(len(df)),
+    "class_balance": {
+        "Y": int((df["Loan_Status"] == "Y").sum()),
+        "N": int((df["Loan_Status"] == "N").sum())
+    },
+    "train_size": int(len(X_train)),
+    "test_size": int(len(X_test)),
+    "random_seed": 42,
+    "trained_at": datetime.now(timezone.utc).isoformat(),
+    "best_model_name": best_name,
+    "metrics": results[best_name]
+}
+with open(MODEL_DIR / "training_manifest.json", "w") as f:
+    json.dump(manifest, f, indent=2)
+print("Saved training_manifest.json with SHA-256:", dataset_sha256)
+
+# ---------------- Dark Themed Plots (#141415, #FF7D5C, #8B7CF6, #F4F4F5) ----------------
+def apply_dark_theme(fig, ax):
+    fig.patch.set_facecolor("#141415")
+    ax.set_facecolor("#141415")
+    ax.tick_params(colors="#8B8B94", which="both")
+    for spine in ax.spines.values():
+        spine.set_color("#26262A")
+    ax.xaxis.label.set_color("#F4F4F5")
+    ax.yaxis.label.set_color("#F4F4F5")
+    ax.title.set_color("#F4F4F5")
+
+# 1. Confusion Matrix
+fig, ax = plt.subplots(figsize=(5, 4))
+apply_dark_theme(fig, ax)
 cm = confusion_matrix(y_test, trained[best_name]["preds"])
-plt.imshow(cm, cmap="Reds")
+cax = ax.imshow(cm, cmap="YlOrRd")
 for i in range(2):
     for j in range(2):
-        plt.text(j, i, cm[i, j], ha="center", va="center", fontsize=14)
-plt.xticks([0, 1], ["Rejected", "Approved"])
-plt.yticks([0, 1], ["Rejected", "Approved"])
-plt.xlabel("Predicted")
-plt.ylabel("Actual")
-plt.title(f"Confusion Matrix - {best_name}")
+        ax.text(j, i, cm[i, j], ha="center", va="center", fontsize=15, color="#F4F4F5" if cm[i, j] > cm.max()/2 else "#FF7D5C", fontweight="bold")
+ax.set_xticks([0, 1])
+ax.set_xticklabels(["Rejected", "Approved"])
+ax.set_yticks([0, 1])
+ax.set_yticklabels(["Rejected", "Approved"])
+ax.set_xlabel("Predicted")
+ax.set_ylabel("Actual")
+ax.set_title(f"Confusion Matrix — {best_name}")
 plt.tight_layout()
-plt.savefig("/home/claude/loanapp/backend/model/confusion_matrix.png", dpi=120)
-plt.close()
+fig.savefig(MODEL_DIR / "confusion_matrix.png", dpi=130, facecolor="#141415")
+fig.savefig(MODEL_DIR / "confusion_matrix_dark.png", dpi=130, facecolor="#141415")
+plt.close(fig)
 
-plt.figure(figsize=(5, 4))
+# 2. ROC Curve
+fig, ax = plt.subplots(figsize=(5, 4))
+apply_dark_theme(fig, ax)
+colors_map = {"Random Forest": "#FF7D5C", "Logistic Regression": "#8B7CF6", "XGBoost": "#22A06B"}
 for name in results:
     fpr, tpr, _ = roc_curve(y_test, trained[name]["proba"])
-    plt.plot(fpr, tpr, label=f"{name} (AUC={results[name]['roc_auc']})")
-plt.plot([0, 1], [0, 1], "k--", alpha=0.3)
-plt.xlabel("False Positive Rate")
-plt.ylabel("True Positive Rate")
-plt.title("ROC Curve - All Models")
-plt.legend(fontsize=8)
+    ax.plot(fpr, tpr, label=f"{name} (AUC={results[name]['roc_auc']})", color=colors_map.get(name, "#FF7D5C"), linewidth=2)
+ax.plot([0, 1], [0, 1], color="#8B8B94", linestyle="--", alpha=0.4)
+ax.set_xlabel("False Positive Rate")
+ax.set_ylabel("True Positive Rate")
+ax.set_title("ROC Curves — Model Benchmarks")
+leg = ax.legend(fontsize=8, facecolor="#1B1B1D", edgecolor="#26262A")
+for text in leg.get_texts():
+    text.set_color("#F4F4F5")
 plt.tight_layout()
-plt.savefig("/home/claude/loanapp/backend/model/roc_curve.png", dpi=120)
-plt.close()
+fig.savefig(MODEL_DIR / "roc_curve.png", dpi=130, facecolor="#141415")
+fig.savefig(MODEL_DIR / "roc_curve_dark.png", dpi=130, facecolor="#141415")
+plt.close(fig)
 
-plt.figure(figsize=(5, 4))
+# 3. Feature Importance
+fig, ax = plt.subplots(figsize=(5.5, 4.2))
+apply_dark_theme(fig, ax)
 feats = [p[0] for p in imp_pairs]
 vals = [p[1] for p in imp_pairs]
-plt.barh(feats[::-1], vals[::-1], color="#EF4444")
-plt.title("Feature Importance")
+bars = ax.barh(feats[::-1], vals[::-1], color="#FF7D5C", height=0.65)
+ax.grid(axis="x", color="#26262A", linestyle="--", alpha=0.7)
+ax.set_title("Feature Importance Attribution")
+ax.set_xlabel("Importance Score")
 plt.tight_layout()
-plt.savefig("/home/claude/loanapp/backend/model/feature_importance.png", dpi=120)
-plt.close()
+fig.savefig(MODEL_DIR / "feature_importance.png", dpi=130, facecolor="#141415")
+fig.savefig(MODEL_DIR / "feature_importance_dark.png", dpi=130, facecolor="#141415")
+plt.close(fig)
 
-plt.figure(figsize=(5, 4))
+# 4. Model Comparison
+fig, ax = plt.subplots(figsize=(5, 4))
+apply_dark_theme(fig, ax)
 names = list(results.keys())
 accs = [results[n]["accuracy"] for n in names]
 f1s = [results[n]["f1"] for n in names]
 x = np.arange(len(names))
-plt.bar(x - 0.2, accs, width=0.4, label="Accuracy", color="#8B5CF6")
-plt.bar(x + 0.2, f1s, width=0.4, label="F1", color="#EF4444")
-plt.xticks(x, names, fontsize=8)
-plt.ylim(0, 1)
-plt.legend()
-plt.title("Model Comparison")
+ax.bar(x - 0.18, accs, width=0.36, label="Accuracy", color="#FF7D5C")
+ax.bar(x + 0.18, f1s, width=0.36, label="F1-Score", color="#8B7CF6")
+ax.set_xticks(x)
+ax.set_xticklabels(names, fontsize=8.5)
+ax.set_ylim(0, 1.05)
+ax.grid(axis="y", color="#26262A", linestyle="--", alpha=0.7)
+leg = ax.legend(fontsize=8.5, facecolor="#1B1B1D", edgecolor="#26262A")
+for text in leg.get_texts():
+    text.set_color("#F4F4F5")
+ax.set_title("Architecture Benchmark Comparison")
 plt.tight_layout()
-plt.savefig("/home/claude/loanapp/backend/model/model_comparison.png", dpi=120)
-plt.close()
+fig.savefig(MODEL_DIR / "model_comparison.png", dpi=130, facecolor="#141415")
+fig.savefig(MODEL_DIR / "model_comparison_dark.png", dpi=130, facecolor="#141415")
+plt.close(fig)
 
-print("\nAll artifacts saved to backend/model/")
+print("All dark-styled PNGs and manifest successfully generated!")

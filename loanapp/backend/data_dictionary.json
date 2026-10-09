@@ -1,0 +1,174 @@
+{
+  "dataset_name": "loan_dataset.csv",
+  "sha256": "bf0cdb8d524888975f16cf42a5881f5ac311df11f561cb03ee060df81b2c3678",
+  "total_rows": 5000,
+  "annual_rate": 8.5,
+  "columns": {
+    "ApplicantIncome": {
+      "unit": "INR (\u20b9) / month",
+      "type": "numeric",
+      "description": "Primary applicant monthly income in Indian Rupees",
+      "min": 1500.0,
+      "max": 22275.0,
+      "median": 4243.0,
+      "mean": 4656.53,
+      "p5": 2057.95,
+      "p95": 8846.1,
+      "default": 4500.0,
+      "step": 100
+    },
+    "CoapplicantIncome": {
+      "unit": "INR (\u20b9) / month",
+      "type": "numeric",
+      "description": "Co-applicant monthly income in Indian Rupees",
+      "min": 0.0,
+      "max": 14954.0,
+      "median": 1318.5,
+      "mean": 1613.0,
+      "p5": 0.0,
+      "p95": 4827.45,
+      "default": 1500.0,
+      "step": 100
+    },
+    "LoanAmount": {
+      "unit": "Thousands of INR (\u20b9)",
+      "multiplier_to_inr": 1000,
+      "type": "numeric",
+      "description": "Requested principal loan amount in thousands of Indian Rupees (e.g., 150 = \u20b91,50,000)",
+      "min": 33.0,
+      "max": 461.0,
+      "median": 120.0,
+      "mean": 129.22,
+      "p5": 62.0,
+      "p95": 226.0,
+      "default": 130.0,
+      "step": 5
+    },
+    "Loan_Amount_Term": {
+      "unit": "Months",
+      "type": "numeric",
+      "description": "Loan repayment tenure in months",
+      "min": 12.0,
+      "max": 360.0,
+      "median": 360.0,
+      "mean": 264.21,
+      "p5": 36.0,
+      "p95": 360.0,
+      "default": 360,
+      "allowed_values": [
+        12,
+        36,
+        60,
+        84,
+        120,
+        180,
+        240,
+        300,
+        360
+      ]
+    },
+    "Credit_History": {
+      "unit": "Binary Flag",
+      "type": "numeric",
+      "description": "Bureau credit history guideline (1 = Meets credit guidelines / Good, 0 = Defaulter / Poor)",
+      "min": 0,
+      "max": 1,
+      "median": 1,
+      "mean": 0.77,
+      "p5": 0.0,
+      "p95": 1.0,
+      "default": 1
+    },
+    "Gender": {
+      "type": "categorical",
+      "allowed_values": [
+        "Male",
+        "Female"
+      ],
+      "default": "Male"
+    },
+    "Married": {
+      "type": "categorical",
+      "allowed_values": [
+        "Yes",
+        "No"
+      ],
+      "default": "Yes"
+    },
+    "Dependents": {
+      "type": "categorical",
+      "allowed_values": [
+        "0",
+        "1",
+        "2",
+        "3+"
+      ],
+      "default": "0"
+    },
+    "Education": {
+      "type": "categorical",
+      "allowed_values": [
+        "Graduate",
+        "Not Graduate"
+      ],
+      "default": "Graduate"
+    },
+    "Self_Employed": {
+      "type": "categorical",
+      "allowed_values": [
+        "No",
+        "Yes"
+      ],
+      "default": "No"
+    },
+    "Property_Area": {
+      "type": "categorical",
+      "allowed_values": [
+        "Urban",
+        "Semiurban",
+        "Rural"
+      ],
+      "default": "Semiurban"
+    }
+  },
+  "demo_scenarios": [
+    {
+      "name": "Prime Salaried Professional (High Probability Approval)",
+      "description": "Graduate professional with solid income, clean credit history, and balanced loan size",
+      "data": {
+        "gender": "Male",
+        "married": "Yes",
+        "dependents": "1",
+        "education": "Graduate",
+        "self_employed": "No",
+        "applicant_income": 5800,
+        "coapplicant_income": 2200,
+        "loan_amount": 130,
+        "loan_amount_term": 360,
+        "credit_history": 1,
+        "property_area": "Semiurban",
+        "cibil_score": 780
+      },
+      "expected_outcome": "Approved"
+    },
+    {
+      "name": "High-Risk Overleveraged Applicant (Likely Rejection)",
+      "description": "Single applicant with lower income requesting large loan with compromised credit history",
+      "data": {
+        "gender": "Male",
+        "married": "No",
+        "dependents": "2",
+        "education": "Not Graduate",
+        "self_employed": "Yes",
+        "applicant_income": 2200,
+        "coapplicant_income": 0,
+        "loan_amount": 250,
+        "loan_amount_term": 180,
+        "credit_history": 0,
+        "property_area": "Rural",
+        "cibil_score": 540
+      },
+      "expected_outcome": "Rejected"
+    }
+  ]
+}
