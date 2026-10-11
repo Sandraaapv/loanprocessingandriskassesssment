@@ -114,7 +114,7 @@ class ApplicantData(BaseModel):
     loan_amount_term: int = 360
     credit_history: int = 1
     property_area: str = "Semiurban"
-    cibil_score: int | None = 750
+    cibil_score: int | None = None
     annual_income: float | None = None
     residential_assets: float | None = 0.0
     commercial_assets: float | None = 0.0
@@ -175,22 +175,57 @@ def auth_google(req: GoogleAuthRequest):
         write_json(USERS_FILE, users)
     return {"id": match["id"], "name": match["name"], "email": match["email"], "role": match.get("role", "analyst"), "avatar": match.get("avatar", "")}
 
-# ---------------- Prediction core ----------------
-def run_prediction(a: ApplicantData):
-    cred_hist = a.credit_history
-    if a.cibil_score is not None:
-        cred_hist = 1 if a.cibil_score >= 650 else 0
+# ---------------- Prediction & Underwriting Core ----------------
+def calculate_reducing_emi(principal_rupees: float, annual_rate_pct: float, tenure_months: int) -> float:
+    """Standard reducing-balance monthly EMI in Rupees."""
+    if principal_rupees <= 0 or tenure_months <= 0:
+        return 0.0
+    if annual_rate_pct <= 0:
+        return round(principal_rupees / tenure_months, 2)
+    r = annual_rate_pct / 12 / 100
+    n = tenure_months
+    factor = (1 + r) ** n
+    if factor <= 1 or np.isinf(factor):
+        return round(principal_rupees / n, 2)
+    monthly_emi = (principal_rupees * r * factor) / (factor - 1)
+    return round(float(monthly_emi), 2)
 
+def run_prediction(a: ApplicantData):
+    # Resolve bureau guideline compliance
+    cred_hist = int(a.credit_history)
+    if a.cibil_score is not None:
+        if a.cibil_score < 650 or a.credit_history == 0:
+            cred_hist = 0
+        else:
+            cred_hist = 1
+
+    total_income = max(0.0, float(a.applicant_income) + max(0.0, float(a.coapplicant_income)))
+    principal = max(0.0, float(a.loan_amount) * 1000.0)
+    tenure_months = max(1, int(a.loan_amount_term))
+    annual_rate = ANNUAL_RATE
+
+    # Precise reducing-balance EMI
+    emi = calculate_reducing_emi(principal, annual_rate, tenure_months)
+
+    # Debt-to-Income (DTI / FOIR) and Loan-to-Income ratios
+    if total_income > 0:
+        dti_ratio = round((emi / total_income) * 100, 1)
+        loan_to_income = round(principal / (total_income * 12), 2)
+    else:
+        dti_ratio = 100.0 if emi > 0 else 0.0
+        loan_to_income = 99.9 if principal > 0 else 0.0
+
+    # Build ML feature row
     row = {
         "Gender_enc": encode_maps["Gender"].get(a.gender, 1),
         "Married_enc": encode_maps["Married"].get(a.married, 0),
         "Dependents_num": dependents_map.get(a.dependents, 0),
         "Education_enc": encode_maps["Education"].get(a.education, 1),
         "Self_Employed_enc": encode_maps["Self_Employed"].get(a.self_employed, 0),
-        "ApplicantIncome": a.applicant_income,
-        "CoapplicantIncome": a.coapplicant_income,
-        "LoanAmount": a.loan_amount,
-        "Loan_Amount_Term": a.loan_amount_term,
+        "ApplicantIncome": float(a.applicant_income),
+        "CoapplicantIncome": float(a.coapplicant_income),
+        "LoanAmount": float(a.loan_amount),
+        "Loan_Amount_Term": tenure_months,
         "Credit_History": cred_hist,
         "Property_Area_enc": encode_maps["Property_Area"].get(a.property_area, 1),
     }
@@ -201,9 +236,47 @@ def run_prediction(a: ApplicantData):
     else:
         X_in = X
 
-    proba = float(model.predict_proba(X_in)[0][1])
-    pred = int(proba >= 0.5)
-    risk_score = round((1 - proba) * 100, 1)
+    ml_proba = float(model.predict_proba(X_in)[0][1])
+
+    # Regulatory & Institutional Underwriting Assessment
+    # Prudent FOIR benchmark limit: 45.0%
+    MAX_FOIR = 45.0
+
+    if principal <= 0:
+        final_proba = 0.0
+        risk_score = 100.0
+        pred = 0
+    elif total_income <= 0:
+        final_proba = 0.01
+        risk_score = 99.0
+        pred = 0
+    elif cred_hist == 0:
+        # Default / credit non-compliance is a critical risk factor
+        final_proba = round(min(ml_proba * 0.15, 0.18), 4)
+        risk_score = round((1 - final_proba) * 100, 1)
+        pred = 0
+    elif dti_ratio > 50.0:
+        # Severe repayment distress (overleveraged borrower)
+        if dti_ratio >= 100.0:
+            final_proba = 0.02
+        elif dti_ratio >= 70.0:
+            final_proba = 0.08
+        else:
+            final_proba = round(min(ml_proba * 0.30, 0.25), 4)
+        risk_score = round((1 - final_proba) * 100, 1)
+        pred = 0
+    elif dti_ratio > MAX_FOIR:
+        # Exceeds 45% regulatory FOIR ceiling
+        final_proba = round(min(ml_proba * 0.50, 0.42), 4)
+        risk_score = round((1 - final_proba) * 100, 1)
+        pred = 0
+    else:
+        # Prudent profile: good credit and manageable debt load <= 45% FOIR
+        final_proba = round(ml_proba, 4)
+        pred = int(final_proba >= 0.5)
+        risk_score = round((1 - final_proba) * 100, 1)
+
+    status = "Approved" if pred == 1 else "Rejected"
 
     if hasattr(model, "feature_importances_"):
         importances = model.feature_importances_
@@ -215,9 +288,11 @@ def run_prediction(a: ApplicantData):
         direction = "positive"
         if feat == "Credit_History" and cred_hist == 0:
             direction = "negative"
-        elif feat == "LoanAmount" and a.loan_amount > 200:
+        elif feat == "LoanAmount" and (a.loan_amount > 200 or dti_ratio > MAX_FOIR):
             direction = "negative"
-        elif feat in ("ApplicantIncome", "CoapplicantIncome") and row[feat] < 3000:
+        elif feat in ("ApplicantIncome", "CoapplicantIncome") and total_income < 3000:
+            direction = "negative"
+        elif feat == "Loan_Amount_Term" and tenure_months < 60 and dti_ratio > MAX_FOIR:
             direction = "negative"
         contrib.append({
             "feature": FEATURE_LABELS.get(feat, feat),
@@ -226,60 +301,52 @@ def run_prediction(a: ApplicantData):
         })
     contrib = sorted(contrib, key=lambda c: -c["impact"])[:5]
 
-    total_income = a.applicant_income + a.coapplicant_income
-    annual_rate = 8.5
-    monthly_rate = annual_rate / 12 / 100
-    principal = a.loan_amount * 1000
-    n = a.loan_amount_term
-    if n > 0 and monthly_rate > 0:
-        emi = principal * monthly_rate * (1 + monthly_rate) ** n / ((1 + monthly_rate) ** n - 1)
-    else:
-        emi = 0
-    dti_ratio = round((emi / total_income) * 100, 1) if total_income > 0 else 0
-    loan_to_income = round(principal / (total_income * 12), 2) if total_income > 0 else 0
-
     radar = {
-        "income_stability": round(min(100, (total_income / 8000) * 100), 1),
+        "income_stability": round(min(100.0, max(0.0, (total_income / 8000.0) * 100.0)), 1),
         "credit_reliability": 95.0 if cred_hist == 1 else 15.0,
-        "loan_burden": round(max(0, 100 - dti_ratio), 1),
+        "loan_burden": round(max(0.0, min(100.0, 100.0 - dti_ratio)), 1) if total_income > 0 else 0.0,
         "employment_risk": 80.0 if a.self_employed == "No" else 55.0,
         "property_security": {"Urban": 85.0, "Semiurban": 70.0, "Rural": 55.0}.get(a.property_area, 75.0),
     }
 
     return {
-        "status": "Approved" if pred == 1 else "Rejected",
-        "probability": round(proba, 4),
+        "status": status,
+        "probability": final_proba,
         "risk_score": risk_score,
         "top_factors": contrib,
         "estimated_emi": round(emi, 2),
         "dti_ratio_percent": dti_ratio,
         "loan_to_income_ratio": loan_to_income,
         "radar": radar,
-        "explanation": build_explanation(pred, a, dti_ratio),
+        "explanation": build_explanation(pred, a, dti_ratio, cred_hist, total_income, loan_to_income, principal),
     }
 
-def build_explanation(pred, a, dti_ratio):
-    cred_hist = a.credit_history
-    if a.cibil_score is not None:
-        cred_hist = 1 if a.cibil_score >= 650 else 0
+def build_explanation(pred, a, dti_ratio, cred_hist, total_income, loan_to_income, principal):
+    MAX_FOIR = 45.0
     if pred == 1:
         reasons = []
         if cred_hist == 1:
-            reasons.append("a strong credit profile")
-        if a.applicant_income + a.coapplicant_income > 6000:
+            reasons.append("verified credit bureau compliance")
+        if total_income >= 5000:
             reasons.append("stable combined household cashflow")
-        if dti_ratio < 40:
-            reasons.append("a manageable debt-to-income ratio")
+        if dti_ratio <= MAX_FOIR:
+            reasons.append(f"manageable debt burden ({dti_ratio}% DTI, safely within {MAX_FOIR}% FOIR cap)")
         reason_text = ", ".join(reasons) if reasons else "an overall favorable financial profile"
-        return f"Approval likelihood is high due to {reason_text}."
+        return f"Application approved. Underwriting checks passed with {reason_text}."
     else:
         reasons = []
+        if principal <= 0:
+            reasons.append("loan amount must be greater than zero")
+        if total_income <= 0:
+            reasons.append("zero or insufficient household income to service debt")
         if cred_hist == 0:
-            reasons.append("an impaired or unestablished credit record")
-        if dti_ratio >= 40:
-            reasons.append("an elevated debt-to-income ratio exceeding prudent limits")
-        if a.applicant_income + a.coapplicant_income < 3000:
-            reasons.append("low aggregate income relative to requested principal")
+            reasons.append("an impaired credit history or bureau guideline non-compliance")
+        if dti_ratio > MAX_FOIR:
+            reasons.append(f"excessive debt-to-income ratio ({dti_ratio}% DTI) breaching the {MAX_FOIR}% regulatory FOIR ceiling")
+        if loan_to_income > 8.0:
+            reasons.append(f"disproportionate loan size relative to annual income ({loan_to_income}x annual income)")
+        elif total_income < 3000 and total_income > 0:
+            reasons.append("low aggregate income relative to requested borrowing")
         reason_text = ", ".join(reasons) if reasons else "an elevated overall credit risk profile"
         return f"This application is flagged as high risk due to {reason_text}."
 

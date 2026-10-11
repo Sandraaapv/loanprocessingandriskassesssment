@@ -2090,21 +2090,21 @@
 
             <div class="field-box">
               <label class="field-label">Applicant Monthly Income (₹)</label>
-              <input class="field-input" type="number" id="applyAppIncome" value="4500" min="1500" max="25000" step="100" required />
+              <input class="field-input" type="number" id="applyAppIncome" value="4500" min="0" max="100000000" step="100" required />
               <div class="field-hint-text" id="hintApplyApp">₹4,500 / month</div>
               <div class="field-warning-text" id="warnApplyApp" style="display:none;"></div>
             </div>
 
             <div class="field-box">
               <label class="field-label">Co-Applicant Monthly Income (₹)</label>
-              <input class="field-input" type="number" id="applyCoappIncome" value="1500" min="0" max="15000" step="100" />
+              <input class="field-input" type="number" id="applyCoappIncome" value="1500" min="0" max="100000000" step="100" />
               <div class="field-hint-text" id="hintApplyCoapp">₹1,500 / month</div>
               <div class="field-warning-text" id="warnApplyCoapp" style="display:none;"></div>
             </div>
 
             <div class="field-box">
               <label class="field-label">Requested Loan Amount (₹)</label>
-              <input class="field-input" type="number" id="applyAmount" value="130000" min="30000" max="500000" step="5000" required />
+              <input class="field-input" type="number" id="applyAmount" value="130000" min="1000" max="100000000" step="1000" required />
               <div class="field-hint-text" id="hintApplyAmount">₹1,30,000 (130 in Thousands)</div>
               <div class="field-warning-text" id="warnApplyAmount" style="display:none;"></div>
             </div>
@@ -3730,10 +3730,15 @@ window.activeSampleTrueLabel = null;
 window.datasetSamples = [];
 
 function updateApplyHints() {
-  const appInc = parseFloat(document.getElementById("applyAppIncome")?.value || 4500);
-  const coappInc = parseFloat(document.getElementById("applyCoappIncome")?.value || 1500);
-  const amount = parseFloat(document.getElementById("applyAmount")?.value || 130000);
-  const tenureMonths = parseInt(document.getElementById("applyTenure")?.value || 360);
+  const appRaw = document.getElementById("applyAppIncome")?.value;
+  const coappRaw = document.getElementById("applyCoappIncome")?.value;
+  const amtRaw = document.getElementById("applyAmount")?.value;
+  const tenureRaw = document.getElementById("applyTenure")?.value;
+
+  const appInc = (appRaw !== "" && !isNaN(Number(appRaw))) ? Math.max(0, Number(appRaw)) : 4500;
+  const coappInc = (coappRaw !== "" && !isNaN(Number(coappRaw))) ? Math.max(0, Number(coappRaw)) : 0;
+  const amount = (amtRaw !== "" && !isNaN(Number(amtRaw))) ? Math.max(0, Number(amtRaw)) : 130000;
+  const tenureMonths = parseInt(tenureRaw || 360) || 360;
   const tenureYears = tenureMonths / 12;
 
   document.getElementById("hintApplyApp").textContent = `${formatINR(appInc)} / month`;
@@ -3742,18 +3747,23 @@ function updateApplyHints() {
 
   const annualRate = window.ANNUAL_RATE || 8.5;
   const estEmi = emi(amount, annualRate, tenureYears);
-  document.getElementById("hintApplyEmi").textContent = `Estimated EMI: ${formatINR(estEmi)}/mo @ ${annualRate}% p.a.`;
+  const totalInc = appInc + coappInc;
+  const dti = totalInc > 0 ? ((estEmi / totalInc) * 100).toFixed(1) : (estEmi > 0 ? "100+" : "0");
+  document.getElementById("hintApplyEmi").textContent = `Estimated EMI: ${formatINR(estEmi)}/mo @ ${annualRate}% p.a. · FOIR: ${dti}%`;
 
-  // Validation Warnings based on Dataset p5–p95 (Task 2 item 4)
+  // Validation Warnings based on Dataset p5–p95 & Reasonable Borrowing Limits
   if (window.DATA_DICT && window.DATA_DICT.columns) {
     const cols = window.DATA_DICT.columns;
 
     // Applicant Income warning
     const warnApp = document.getElementById("warnApplyApp");
     if (warnApp && cols.ApplicantIncome) {
-      if (appInc < cols.ApplicantIncome.p5 || appInc > cols.ApplicantIncome.p95) {
+      if (appInc === 0) {
         warnApp.style.display = "flex";
-        warnApp.innerHTML = `⚠️ Outside the range the model was trained on (${formatINR(cols.ApplicantIncome.p5)} – ${formatINR(cols.ApplicantIncome.p95)}) — prediction may be less reliable`;
+        warnApp.innerHTML = `⚠️ Zero income detected — loan cannot be approved without verifiable debt servicing capability`;
+      } else if (appInc < cols.ApplicantIncome.p5 || appInc > cols.ApplicantIncome.p95) {
+        warnApp.style.display = "flex";
+        warnApp.innerHTML = `⚠️ Outside the typical benchmark range (${formatINR(cols.ApplicantIncome.p5)} – ${formatINR(cols.ApplicantIncome.p95)})`;
       } else {
         warnApp.style.display = "none";
       }
@@ -3764,19 +3774,26 @@ function updateApplyHints() {
     if (warnCoapp && cols.CoapplicantIncome) {
       if (coappInc > cols.CoapplicantIncome.p95) {
         warnCoapp.style.display = "flex";
-        warnCoapp.innerHTML = `⚠️ Outside the range the model was trained on (&le; ${formatINR(cols.CoapplicantIncome.p95)}) — prediction may be less reliable`;
+        warnCoapp.innerHTML = `⚠️ Higher than typical benchmark (&le; ${formatINR(cols.CoapplicantIncome.p95)})`;
       } else {
         warnCoapp.style.display = "none";
       }
     }
 
-    // Loan Amount warning (in thousands)
+    // Loan Amount warning
     const warnAmt = document.getElementById("warnApplyAmount");
-    if (warnAmt && cols.LoanAmount) {
-      const amtThousands = amount / 1000;
-      if (amtThousands < cols.LoanAmount.p5 || amtThousands > cols.LoanAmount.p95) {
+    if (warnAmt) {
+      if (amount > 0 && amount < 1000) {
         warnAmt.style.display = "flex";
-        warnAmt.innerHTML = `⚠️ Outside the range the model was trained on (${formatINR(cols.LoanAmount.p5 * 1000)} – ${formatINR(cols.LoanAmount.p95 * 1000)}) — prediction may be less reliable`;
+        warnAmt.innerHTML = `⚠️ Entered ${formatINR(amount)}? If you mean ${formatINRCompact(amount * 1000)}, please enter ${amount * 1000} (full Rupees).`;
+      } else if (cols.LoanAmount) {
+        const amtThousands = amount / 1000;
+        if (amtThousands < cols.LoanAmount.p5 || amtThousands > cols.LoanAmount.p95) {
+          warnAmt.style.display = "flex";
+          warnAmt.innerHTML = `⚠️ Outside the typical benchmark range (${formatINR(cols.LoanAmount.p5 * 1000)} – ${formatINR(cols.LoanAmount.p95 * 1000)}) — higher loan amounts increase FOIR burden`;
+        } else {
+          warnAmt.style.display = "none";
+        }
       } else {
         warnAmt.style.display = "none";
       }
@@ -3832,7 +3849,7 @@ function loadSampleRow(idx) {
   // LoanAmount in CSV is in THOUSANDS of INR -> Multiply by 1000
   document.getElementById("applyAmount").value = Math.round((row.LoanAmount || 130) * 1000);
   document.getElementById("applyTenure").value = String(row.Loan_Amount_Term || 360);
-  document.getElementById("applyCreditHistory").value = String(row.Credit_History !== undefined ? row.Credit_History : 1);
+  document.getElementById("applyCreditHistory").value = String(Math.round(Number(row.Credit_History !== undefined ? row.Credit_History : 1)));
   document.getElementById("applyEducation").value = row.Education || "Graduate";
   document.getElementById("applyPropertyArea").value = row.Property_Area || "Urban";
   document.getElementById("applyMarried").value = row.Married || "Yes";
@@ -3855,11 +3872,11 @@ async function handleApplySubmit(e) {
     btn.textContent = "Running ML Model...";
   }
 
-  const appInc = parseFloat(document.getElementById("applyAppIncome")?.value || 4500);
-  const coappInc = parseFloat(document.getElementById("applyCoappIncome")?.value || 1500);
-  const amount = parseFloat(document.getElementById("applyAmount")?.value || 130000);
-  const tenureMonths = parseInt(document.getElementById("applyTenure")?.value || 360);
-  const creditHist = parseInt(document.getElementById("applyCreditHistory")?.value || 1);
+  const appRaw = document.getElementById("applyAppIncome")?.value;
+  const coappRaw = document.getElementById("applyCoappIncome")?.value;
+  const amtRaw = document.getElementById("applyAmount")?.value;
+  const tenureMonths = parseInt(document.getElementById("applyTenure")?.value || 360) || 360;
+  const creditHist = parseInt(document.getElementById("applyCreditHistory")?.value ?? 1);
   const education = document.getElementById("applyEducation")?.value || "Graduate";
   const propArea = document.getElementById("applyPropertyArea")?.value || "Urban";
   const married = document.getElementById("applyMarried")?.value || "Yes";
@@ -3867,6 +3884,10 @@ async function handleApplySubmit(e) {
   const selfEmp = document.getElementById("applySelfEmployed")?.value || "No";
   const gender = document.getElementById("applyGender")?.value || "Male";
   const purpose = document.getElementById("applyPurpose")?.value || "Home Loan";
+
+  const appInc = (appRaw !== "" && !isNaN(Number(appRaw))) ? Math.max(0, Number(appRaw)) : 4500;
+  const coappInc = (coappRaw !== "" && !isNaN(Number(coappRaw))) ? Math.max(0, Number(coappRaw)) : 0;
+  const amount = (amtRaw !== "" && !isNaN(Number(amtRaw))) ? Math.max(0, Number(amtRaw)) : 130000;
 
   // LoanAmount in thousands for model input
   const loanThousand = amount / 1000;
@@ -3957,10 +3978,11 @@ async function handleApplySubmit(e) {
     const rate = window.ANNUAL_RATE || 8.5;
     const mRate = rate / 12 / 100;
     const n = tenureMonths;
-    const emiVal = (amount * mRate * Math.pow(1 + mRate, n)) / (Math.pow(1 + mRate, n) - 1);
-    const dtiVal = (emiVal / totalInc) * 100;
-    const ltiVal = amount / (totalInc * 12);
-    const isApproved = creditHist === 1 && dtiVal <= 45;
+    const factor = Math.pow(1 + mRate, n);
+    const emiVal = (amount > 0 && n > 0 && factor > 1) ? (amount * mRate * factor) / (factor - 1) : 0;
+    const dtiVal = totalInc > 0 ? (emiVal / totalInc) * 100 : (emiVal > 0 ? 100 : 0);
+    const ltiVal = totalInc > 0 ? amount / (totalInc * 12) : (amount > 0 ? 99.9 : 0);
+    const isApproved = creditHist === 1 && dtiVal <= 45 && totalInc > 0 && amount > 0;
 
     const callout = document.getElementById("applyResultCallout");
     callout.style.display = "flex";
@@ -3968,10 +3990,15 @@ async function handleApplySubmit(e) {
     const badge = document.getElementById("calloutBadge");
     badge.className = isApproved ? "status-badge status-approved" : "status-badge status-rejected";
     badge.innerHTML = `<span class="status-dot"></span>${isApproved ? 'Approved' : 'Rejected'}`;
-    document.getElementById("calloutReason").textContent = isApproved
-      ? "Underwriting verified: Favorable credit history and manageable repayment debt burden."
-      : "High risk flag: Credit non-compliance or debt burden exceeding 45% FOIR prudent benchmark.";
-    document.getElementById("calloutProb").textContent = isApproved ? "92.0% (Risk: 8.0)" : "25.0% (Risk: 75.0)";
+
+    let fallbackReason = "";
+    if (totalInc <= 0) fallbackReason = "Zero verifiable household income to service debt.";
+    else if (creditHist === 0) fallbackReason = "High risk flag: Credit non-compliance or adverse bureau record.";
+    else if (dtiVal > 45) fallbackReason = `High risk flag: Debt burden (${dtiVal.toFixed(1)}% DTI) exceeds 45% FOIR regulatory cap.`;
+    else fallbackReason = "Underwriting verified: Favorable credit history and manageable repayment debt burden.";
+
+    document.getElementById("calloutReason").textContent = fallbackReason;
+    document.getElementById("calloutProb").textContent = isApproved ? "92.0% (Risk: 8.0)" : "12.0% (Risk: 88.0)";
     document.getElementById("calloutEmi").textContent = `${formatINR(Math.round(emiVal))}/mo @ ${rate}% p.a.`;
     document.getElementById("calloutDti").textContent = `${dtiVal.toFixed(1)}%`;
     document.getElementById("calloutLti").textContent = `${ltiVal.toFixed(2)}x`;
@@ -4209,6 +4236,7 @@ window.handleGlobalSearch = handleGlobalSearch;
   document.getElementById("applyCoappIncome")?.addEventListener("input", updateApplyHints);
   document.getElementById("applyAmount")?.addEventListener("input", updateApplyHints);
   document.getElementById("applyTenure")?.addEventListener("change", updateApplyHints);
+  document.getElementById("applyCreditHistory")?.addEventListener("change", updateApplyHints);
 
   // Connect to live dataset backend (Task 3 & Task 2)
   await fetchHealth();

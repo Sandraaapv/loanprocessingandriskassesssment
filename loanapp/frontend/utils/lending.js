@@ -20,14 +20,15 @@ export function emi(principal, annualRatePct, tenureYears) {
   const p = Number(principal);
   const rAnnual = Number(annualRatePct);
   const nYears = Number(tenureYears);
-  if (p <= 0 || nYears <= 0) return 0;
-  if (rAnnual <= 0) return Math.round(p / (nYears * 12));
+  if (p <= 0 || nYears <= 0 || isNaN(p) || isNaN(nYears)) return 0;
+  if (rAnnual <= 0 || isNaN(rAnnual)) return Math.round(p / (nYears * 12));
 
   const r = rAnnual / 12 / 100;
   const n = nYears * 12;
   const factor = Math.pow(1 + r, n);
+  if (factor <= 1 || !isFinite(factor)) return Math.round(p / n);
   const monthlyEmi = (p * r * factor) / (factor - 1);
-  return Math.round(monthlyEmi);
+  return isFinite(monthlyEmi) && !isNaN(monthlyEmi) ? Math.round(monthlyEmi) : 0;
 }
 
 /**
@@ -38,9 +39,11 @@ export function emi(principal, annualRatePct, tenureYears) {
  */
 export function foir(totalMonthlyEmi, monthlyIncome) {
   const inc = Number(monthlyIncome);
-  if (inc <= 0) return 100;
-  const ratio = (Number(totalMonthlyEmi) / inc) * 100;
-  return Math.round(ratio * 10) / 10;
+  const emiVal = Number(totalMonthlyEmi);
+  if (isNaN(inc) || inc <= 0) return (emiVal > 0 ? 100 : 0);
+  if (isNaN(emiVal) || emiVal <= 0) return 0;
+  const ratio = (emiVal / inc) * 100;
+  return isFinite(ratio) ? Math.round(ratio * 10) / 10 : 100;
 }
 
 /**
@@ -54,23 +57,27 @@ export function foir(totalMonthlyEmi, monthlyIncome) {
 export function maxEligibleLoan(monthlyIncome, existingEmi = 0, annualRatePct = 8.5, tenureYears = 20) {
   const inc = Number(monthlyIncome);
   const exist = Number(existingEmi);
+  if (isNaN(inc) || inc <= 0 || isNaN(exist) || exist < 0) return 0;
   const maxAllowedEmi = inc * (MAX_FOIR / 100);
   const availableEmi = Math.max(0, maxAllowedEmi - exist);
 
   if (availableEmi <= 0 || tenureYears <= 0) return 0;
 
   const rAnnual = Number(annualRatePct);
-  if (rAnnual <= 0) {
+  if (rAnnual <= 0 || isNaN(rAnnual)) {
     return Math.round(availableEmi * tenureYears * 12);
   }
 
   const r = rAnnual / 12 / 100;
   const n = Number(tenureYears) * 12;
   const factor = Math.pow(1 + r, n);
+  if (factor <= 1 || !isFinite(factor)) {
+    return Math.round(availableEmi * n);
+  }
 
   // P = E * (factor - 1) / (r * factor)
   const principal = (availableEmi * (factor - 1)) / (r * factor);
-  return Math.round(principal);
+  return isFinite(principal) && !isNaN(principal) ? Math.round(principal) : 0;
 }
 
 /**
@@ -80,11 +87,15 @@ export function maxEligibleLoan(monthlyIncome, existingEmi = 0, annualRatePct = 
  * @returns {Object} { decision, foirAfter, headroomEmi, maxEligibleAmount, newEmi, reason }
  */
 export function assess(application, applicant) {
-  const requestedPrincipal = Number(application.amount || 0);
-  const rate = Number(application.annualRatePct || 8.5);
-  const tenure = Number(application.tenureYears || 20);
-  const income = Number(applicant.monthlyIncome || 100000);
-  const currentEmi = Number(applicant.existingEmi || 0);
+  const requestedPrincipal = Number(application?.amount || 0);
+  const rate = Number(application?.annualRatePct ?? 8.5);
+  const tenure = Number(application?.tenureYears ?? 20);
+  const income = applicant?.monthlyIncome !== undefined && !isNaN(Number(applicant.monthlyIncome))
+    ? Number(applicant.monthlyIncome)
+    : 100000;
+  const currentEmi = applicant?.existingEmi !== undefined && !isNaN(Number(applicant.existingEmi))
+    ? Number(applicant.existingEmi)
+    : 0;
 
   const newEmi = emi(requestedPrincipal, rate, tenure);
   const totalEmiAfter = currentEmi + newEmi;
@@ -96,7 +107,13 @@ export function assess(application, applicant) {
   let decision = "approved";
   let reason = "";
 
-  if (foirAfter <= MAX_FOIR) {
+  if (income <= 0) {
+    decision = "rejected";
+    reason = "Household income must be greater than zero to evaluate borrowing capacity.";
+  } else if (requestedPrincipal <= 0) {
+    decision = "rejected";
+    reason = "Requested loan amount must be greater than zero.";
+  } else if (foirAfter <= MAX_FOIR) {
     decision = "approved";
     reason = `Approved. EMI load of ${Math.round(foirAfter)}% remains safely within the ${MAX_FOIR}% limit.`;
   } else if (maxEligibleAmount >= 100000) {
