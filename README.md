@@ -6,7 +6,7 @@ lendr is a loan evaluation web application that combines a machine learning clas
 
 Deployed application: https://loanprocessingandriskassesssment.onrender.com/
 
-## Screenshots
+
 
 <!--
 Placeholder paths for interface screenshots:
@@ -108,7 +108,7 @@ Run verification:
 ```bash
 python loanapp/backend/verify_connection.py
 ```
-Status: All 5 test suites pass successfully (PASS).
+
 
 ## Disclaimer
 
