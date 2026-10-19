@@ -1,0 +1,18 @@
+[
+  {
+    "id": "usr-demo-001",
+    "name": "Alex Mercer",
+    "email": "alex.mercer@example.com",
+    "password_hash": "placeholder_demo_hash_001",
+    "role": "analyst",
+    "created_at": "2026-01-01T10:00:00"
+  },
+  {
+    "id": "usr-demo-002",
+    "name": "Sarah Connor",
+    "email": "sarah.connor@example.com",
+    "password_hash": "placeholder_demo_hash_002",
+    "role": "user",
+    "created_at": "2026-01-02T11:00:00"
+  }
+]

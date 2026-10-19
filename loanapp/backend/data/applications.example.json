@@ -1,0 +1,88 @@
+[
+  {
+    "id": "app-demo-001",
+    "ref_code": "LG-000101",
+    "user_email": "alex.mercer@example.com",
+    "applicant_name": "Demo Applicant 1",
+    "applicant": {
+      "gender": "Male",
+      "married": "Yes",
+      "dependents": "1",
+      "education": "Graduate",
+      "self_employed": "No",
+      "applicant_income": 5800.0,
+      "coapplicant_income": 2200.0,
+      "loan_amount": 130.0,
+      "loan_amount_term": 360,
+      "credit_history": 1,
+      "property_area": "Semiurban"
+    },
+    "result": {
+      "status": "Approved",
+      "probability": 0.996,
+      "risk_score": 0.4,
+      "top_factors": [
+        {
+          "feature": "Credit History",
+          "impact": 0.5484,
+          "direction": "positive"
+        }
+      ],
+      "estimated_emi": 999.59,
+      "dti_ratio_percent": 12.5,
+      "loan_to_income_ratio": 1.35,
+      "radar": {
+        "income_stability": 100.0,
+        "credit_reliability": 95.0,
+        "loan_burden": 87.5,
+        "employment_risk": 80.0,
+        "property_security": 70.0
+      },
+      "explanation": "Application approved. Underwriting checks passed with verified credit bureau compliance, stable combined household cashflow, manageable debt burden (12.5% DTI, safely within 45.0% FOIR cap)."
+    },
+    "created_at": "2026-01-01T10:00:00"
+  },
+  {
+    "id": "app-demo-002",
+    "ref_code": "LG-000102",
+    "user_email": "sarah.connor@example.com",
+    "applicant_name": "Demo Applicant 2",
+    "applicant": {
+      "gender": "Female",
+      "married": "No",
+      "dependents": "0",
+      "education": "Not Graduate",
+      "self_employed": "No",
+      "applicant_income": 2100.0,
+      "coapplicant_income": 0.0,
+      "loan_amount": 140.0,
+      "loan_amount_term": 360,
+      "credit_history": 0,
+      "property_area": "Rural"
+    },
+    "result": {
+      "status": "Rejected",
+      "probability": 0.0134,
+      "risk_score": 98.7,
+      "top_factors": [
+        {
+          "feature": "Credit History",
+          "impact": 0.5484,
+          "direction": "negative"
+        }
+      ],
+      "estimated_emi": 1076.48,
+      "dti_ratio_percent": 51.3,
+      "loan_to_income_ratio": 5.56,
+      "radar": {
+        "income_stability": 26.2,
+        "credit_reliability": 15.0,
+        "loan_burden": 48.7,
+        "employment_risk": 80.0,
+        "property_security": 55.0
+      },
+      "explanation": "This application is flagged as high risk due to an impaired credit history or bureau guideline non-compliance, excessive debt-to-income ratio (51.3% DTI) breaching the 45.0% regulatory FOIR ceiling."
+    },
+    "created_at": "2026-01-02T11:00:00"
+  }
+]

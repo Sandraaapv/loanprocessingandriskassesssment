@@ -10,7 +10,13 @@ import pandas as pd
 import joblib
 
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import (
+    RandomForestClassifier,
+    GradientBoostingClassifier,
+    ExtraTreesClassifier,
+    VotingClassifier,
+)
+
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import (
@@ -18,11 +24,6 @@ from sklearn.metrics import (
     roc_auc_score, confusion_matrix, roc_curve
 )
 
-try:
-    from xgboost import XGBClassifier
-    HAS_XGB = True
-except ImportError:
-    HAS_XGB = False
 
 BASE_DIR = Path(__file__).parent
 CSV_PATH = BASE_DIR / "loan_dataset.csv"
@@ -67,24 +68,41 @@ y = (df["Loan_Status"] == "Y").astype(int)
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, stratify=y
 )
-
+print(f"X_train shape: {X_train.shape}")
+print(f"X_test shape:  {X_test.shape}")
+print(f"y_train shape: {y_train.shape}")
+print(f"y_test shape:  {y_test.shape}")
 scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 
 results = {}
+rf = RandomForestClassifier(
+    n_estimators=500, max_depth=16, min_samples_split=3,
+    min_samples_leaf=1, class_weight="balanced", random_state=42, n_jobs=-1
+)
+gb = GradientBoostingClassifier(
+    n_estimators=200, learning_rate=0.05, max_depth=4, random_state=42
+)
+et = ExtraTreesClassifier(
+    n_estimators=500, max_depth=16, min_samples_split=3,
+    min_samples_leaf=1, class_weight="balanced", random_state=42, n_jobs=-1
+)
+lr = LogisticRegression(max_iter=1000, class_weight="balanced")
+
+voting = VotingClassifier(
+    estimators=[("rf", rf), ("gb", gb), ("et", et)],
+    voting="soft",
+    n_jobs=-1,
+)
+
 models = {
-    "Logistic Regression": LogisticRegression(max_iter=1000, class_weight="balanced"),
-    "Random Forest": RandomForestClassifier(
-        n_estimators=500, max_depth=16, min_samples_split=3,
-        min_samples_leaf=1, class_weight="balanced", random_state=42, n_jobs=-1
-    ),
+    "Logistic Regression": lr,
+    "Random Forest": rf,
+    "Gradient Boosting": gb,
+    "Extra Trees": et,
+    "Voting Classifier": voting,
 }
-if HAS_XGB:
-    models["XGBoost"] = XGBClassifier(
-        n_estimators=350, max_depth=6, learning_rate=0.08,
-        eval_metric="logloss", random_state=42
-    )
 
 trained = {}
 for name, model in models.items():
@@ -113,7 +131,7 @@ best_model = trained[best_name]["model"]
 print("\nBest model:", best_name, results[best_name])
 
 # ---------------- Save artifacts ----------------
-joblib.dump(best_model, MODEL_DIR / "loan_rf_model.joblib")
+joblib.dump(best_model, MODEL_DIR / "loan_rf_model.joblib", compress=3)
 joblib.dump(feature_cols, MODEL_DIR / "feature_columns.joblib")
 joblib.dump(scaler, MODEL_DIR / "scaler.joblib")
 joblib.dump(encode_maps, MODEL_DIR / "encode_maps.joblib")
@@ -127,6 +145,13 @@ with open(MODEL_DIR / "results_summary.json", "w") as f:
 # Feature importance
 if hasattr(best_model, "feature_importances_"):
     importances = best_model.feature_importances_
+elif isinstance(best_model, VotingClassifier):
+    fitted_imps = [
+        est.feature_importances_
+        for est in best_model.estimators_
+        if hasattr(est, "feature_importances_")
+    ]
+    importances = np.mean(fitted_imps, axis=0)
 else:
     importances = np.abs(best_model.coef_[0])
 imp_pairs = sorted(zip(feature_cols, importances), key=lambda x: -x[1])
@@ -187,7 +212,13 @@ plt.close(fig)
 # 2. ROC Curve
 fig, ax = plt.subplots(figsize=(5, 4))
 apply_dark_theme(fig, ax)
-colors_map = {"Random Forest": "#FF7D5C", "Logistic Regression": "#8B7CF6", "XGBoost": "#22A06B"}
+colors_map = {
+    "Random Forest": "#FF7D5C",
+    "Logistic Regression": "#8B7CF6",
+    "Gradient Boosting": "#38BDF8",
+    "Extra Trees": "#34D399",
+    "Voting Classifier": "#FBBF24",
+}
 for name in results:
     fpr, tpr, _ = roc_curve(y_test, trained[name]["proba"])
     ax.plot(fpr, tpr, label=f"{name} (AUC={results[name]['roc_auc']})", color=colors_map.get(name, "#FF7D5C"), linewidth=2)

@@ -75,11 +75,19 @@ FEATURE_LABELS = {
 
 # ---------------- Helpers ----------------
 def read_json(path):
-    with open(path) as f:
-        return json.load(f)
+    p = Path(path)
+    if not p.exists():
+        return []
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
 
 def write_json(path, data):
-    with open(path, "w") as f:
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with open(p, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
 def hash_pw(pw: str) -> str:

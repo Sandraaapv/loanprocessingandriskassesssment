@@ -5,6 +5,5 @@ pandas
 numpy
 joblib
 matplotlib
-xgboost
 python-multipart
 pydantic

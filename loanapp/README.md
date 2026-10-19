@@ -1,122 +1,115 @@
-# lendr — Know your room to borrow.
+# lendr
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com)
-[![Underwriting Engine](https://img.shields.io/badge/FOIR_Cap-45%25-brightgreen.svg)]()
-[![Currency](https://img.shields.io/badge/Currency-INR%20(₹)-orange.svg)]()
+Know your room to borrow.
 
-**lendr** is an institutional loan applicant portal and risk intelligence underwriting platform. Built on standard reducing-balance retail banking mathematics and a calibrated Random Forest classifier, lendr empowers applicants to understand their exact borrowing headroom, monitor portfolio debt obligations, and stay safely within the 45% FOIR regulatory cap.
+lendr is a loan evaluation web application that combines a machine learning classifier with deterministic underwriting rules to evaluate loan eligibility and calculate borrowing headroom. It assesses applicant income, credit history, loan amount, and tenure against an internal 45% Fixed Obligation to Income Ratio (FOIR) policy limit to provide approval decisions and loan management tools.
 
-> **Tagline:** *Know your room to borrow.*
+Deployed application: https://loanprocessingandriskassesssment.onrender.com/
 
----
+## Screenshots
 
-## Key Modules & Capabilities
+<!--
+Placeholder paths for interface screenshots:
+- Overview Dashboard: docs/screenshots/overview.png
+- Underwriting Evaluation: docs/screenshots/application.png
+- EMI and Eligibility Planner: docs/screenshots/planner.png
+- Model Performance & Dataset Explorer: docs/screenshots/model_performance.png
+-->
 
-1. **Lending & Eligibility Engine (`utils/lending.js`):**
-   - Single source of truth for reducing-balance EMI calculations, FOIR determination, and headroom assessment.
-   - Strict 45% MAX_FOIR regulatory limit.
-   - Evaluates applications into `approved`, `approved_reduced`, or `rejected` with plain-English reasoning.
+## Features
 
-2. **Standard Indian Rupee Formatting (`utils/formatINR.js`):**
-   - Full INR format: `₹1,00,000`, `₹34,700` using `Intl.NumberFormat('en-IN')`.
-   - Compact Lakh and Crore formatting: `₹40 Lakh`, `₹84 Lakh`, `₹2.5 Cr`.
-   - Zero dollar signs (`$`) or non-Indian suffixes (`k`, `M`). All monetary values stored as plain numbers in rupees.
+| Category | Capability | Description |
+| --- | --- | --- |
+| Underwriting Engine | Risk Assessment | Evaluates application data using an ensemble Voting Classifier to compute approval probability and risk score. |
+| Underwriting Engine | Policy Guardrails | Applies post-model rules: 45% FOIR policy limit, automatic rejection for credit history failure or DTI > 50%. |
+| Underwriting Engine | Feature Attribution | Calculates top directional feature contributions and radar dimension scores for each decision. |
+| Borrower Tools | Application Portal | Underwriting form with live reducing-balance EMI, FOIR preview, and preloaded sample profiles. |
+| Borrower Tools | EMI & Payoff Planners | Interactive reducing-balance calculators for payment schedules and prepayment savings analysis. |
+| Borrower Tools | Eligibility Meter | Headroom gauge displaying maximum eligible loan amount under the 45% FOIR threshold. |
+| Borrower Tools | Applications Ledger | Filterable ledger tracking past applications, approval statuses, and loan terms. |
+| Borrower Tools | Product Comparison | Side-by-side comparison matrix of loan facility terms, interest rates, and FOIR impacts. |
+| Borrower Tools | Model & Data Explorer | Live view of model benchmark metrics, SHA-256 verification, and dataset sample inspector. |
 
-3. **Borrower Tools & Navigational Workflow:**
-   - **Overview:** Executive portfolio summary, FOIR gauge (35% active load), and facility distribution.
-   - **Start Application:** Real-time underwriting assessment with instant FOIR evaluation.
-   - **Applications Ledger:** Comprehensive ledger of lifetime borrowing facilities.
-   - **Pre-Approved Offers:** Headroom-calibrated credit facilities.
-   - **Facility Comparison:** Side-by-side institutional lender evaluation.
-   - **EMI Planner:** Sliders for principal, tenure, and rate with SVG principal vs interest donut charts.
-   - **Eligibility Meter:** Interactive room-to-borrow gauge.
-   - **Payoff Planner:** Extra monthly prepayment simulator with months and interest saved.
-   - **Digital Document Vault:** KYC and identity status management.
-   - **EMI Calendar:** Scheduled monthly debit timeline and NACH tracking.
-   - **Credit Pulse:** CIBIL credit score monitoring with 3 actionable tips.
+## Tech Stack
 
----
+| Layer | Component | Details |
+| --- | --- | --- |
+| Backend | FastAPI (Python) | API endpoints for `/predict`, `/health`, `/dataset/*`, and `/model-performance`. |
+| Machine Learning | scikit-learn | Voting Classifier (soft voting of Random Forest, Gradient Boosting, Extra Trees). |
+| Data Processing | pandas, numpy, joblib | Data ingestion, numeric feature scaling with `StandardScaler`, and artifact serialization. |
+| Frontend | Vanilla HTML5, CSS3, ES6 | Native ES modules (`utils/formatINR.js`, `utils/lending.js`), CSS variables, light/dark themes. |
+| Deployment | Uvicorn, Render | ASGI web server configured via `Procfile` and root `app.py`. |
 
-## Project Structure
+## Model Performance
 
-```
-loanapp/
-├── backend/
-│   ├── app.py                  # FastAPI underwriting API & static asset delivery
-│   ├── generate_dataset.py     # Dataset synthesis
-│   ├── train_model.py          # Random Forest underwriting model training
-│   ├── requirements.txt
-│   └── model/                  # Serialized model artifacts (.joblib, .json)
-└── frontend/
-    ├── index.html              # lendr Single-Page Application (HTML5, Vanilla CSS & ES6)
-    └── utils/
-        ├── formatINR.js        # Dedicated Indian Rupee formatting utility
-        └── lending.js          # Lending & eligibility engine (FOIR, EMI, headroom)
-```
+Evaluated on a 1,000-sample holdout test set (80/20 stratified split from 5,000 total rows). Metrics taken directly from `loanapp/backend/model/results_summary.json`:
 
-## Machine Learning Model Benchmarks
+| Model Architecture | Accuracy | Precision | Recall | F1-Score | ROC-AUC |
+| --- | --- | --- | --- | --- | --- |
+| Voting Classifier (Best) | 0.9580 | 0.9734 | 0.9709 | 0.9721 | 0.9835 |
+| Gradient Boosting | 0.9560 | 0.9647 | 0.9775 | 0.9711 | 0.9825 |
+| Random Forest | 0.9550 | 0.9784 | 0.9616 | 0.9699 | 0.9832 |
+| Extra Trees | 0.9520 | 0.9707 | 0.9656 | 0.9681 | 0.9792 |
+| Logistic Regression | 0.9400 | 0.9833 | 0.9364 | 0.9593 | 0.9814 |
 
-Trained and cross-validated across a 5,000-record underwriting dataset using an 80/20 stratified holdout split (read directly from `model/results_summary.json`):
+Note on dataset: The dataset used for training and testing is synthetic, generated by `loanapp/backend/generate_dataset.py`. The metrics above reflect how well the model learns the synthetic rule boundary and baked-in patterns; they do not represent performance on real-world lending outcomes. Probabilities are output directly from the model and are not calibrated. Training uses a single stratified holdout split without cross-validation.
 
-| Model Architecture | Accuracy | Precision | Recall | F1-Score | ROC-AUC | Status |
-| :--- | :---: | :---: | :---: | :---: | :---: | :--- |
-| **Random Forest (200 Trees)** ⭐ | **95.50%** | **97.84%** | **96.16%** | **0.9699** | **0.9832** | **Active Production Pipeline** |
-| **Logistic Regression** | 94.00% | 98.33% | 93.64% | 0.9593 | 0.9814 | Baseline Benchmark |
+## Getting Started
 
----
-
-## Data Lineage & Reproducibility Pipeline
-
-The underwriting pipeline is deterministic and reproducible from `loan_dataset.csv` alone:
-
-`loan_dataset.csv` ➔ `train_model.py` ➔ `model/*.joblib` + `model/training_manifest.json` ➔ `app.py` ➔ `/predict` ➔ Lendr UI
-
-### 1. Dataset Specifications & Lineage
-- **Dataset File:** `backend/loan_dataset.csv`
-- **Cryptographic SHA-256 Hash:** `bf0cdb8d524888975f16cf42a5881f5ac311df11f561cb03ee060df81b2c3678`
-- **Total Records:** 5,000 underwriting applications
-- **Class Balance:** 3,773 Approved (75.46%) / 1,227 Rejected (24.54%)
-- **Data Dictionary:** Documented in `backend/data_dictionary.json`
-  - `ApplicantIncome`, `CoapplicantIncome`: Monthly income in INR (₹)
-  - `LoanAmount`: Principal in **Thousands of INR (₹)** (e.g. 150 = ₹1,50,000)
-  - `Loan_Amount_Term`: Tenure in months (e.g. 360 months = 30 years)
-  - `Credit_History`: 1 = Meets credit guidelines, 0 = Defaulter/poor
-- **Benchmark Interest Rate:** `ANNUAL_RATE = 8.5%` p.a. single source of truth in backend config.
-
-### 2. Lineage & Verification Commands
-
-To reproduce, retrain, and verify the pipeline from scratch:
+### Prerequisites and Installation
+Ensure Python 3.10+ is installed. Clone the repository and install dependencies:
 
 ```bash
-cd backend
-
-# Step 1 (Optional): Synthesize or regenerate the 5,000-row dataset
-python generate_dataset.py
-
-# Step 2: Retrain models, generate joblib artifacts, and produce training_manifest.json
-python train_model.py
-
-# Step 3: Run the end-to-end automated verification suite (5 PASS tests)
-python verify_connection.py
+pip install -r requirements.txt
 ```
 
-### 3. Automated Verification Suite (`verify_connection.py`)
-Checks performed:
-1. **Dataset Integrity:** CSV exists, loads 5,000 rows, columns match `data_dictionary.json`.
-2. **Cryptographic Lineage:** Current CSV SHA-256 matches `model/training_manifest.json`.
-3. **Model Concordance:** 200 random CSV holdout records evaluated via `run_prediction()`; accuracy & recall verified within 1.5 percentage points of reported holdout metrics.
-4. **Financial Math Precision:** Reducing-balance EMI formula matches hand-calculated benchmark (₹1,50,000 @ 8.5% for 360 mos = ₹1,153.37/mo).
-5. **Metric Verification:** Model performance metrics on disk match published values.
+### Running the Application
+Start the ASGI web server from the project root:
 
----
-
-## Running the Application
-
-### Launch Backend API & Frontend Server
 ```bash
-cd backend
 python -m uvicorn app:app --host 127.0.0.1 --port 8000
 ```
-Open **[http://localhost:8000/](http://localhost:8000/)** in your browser.
-API documentation is available at **[http://localhost:8000/docs](http://localhost:8000/docs)**.
+
+Open `http://localhost:8000/` in a web browser. API documentation is available at `http://localhost:8000/docs`.
+
+## Reproducing the Model
+
+Pipeline sequence: `loanapp/backend/loan_dataset.csv` -> `loanapp/backend/train_model.py` -> `loanapp/backend/model/*.joblib` -> `loanapp/backend/app.py` -> `/predict`.
+
+### Reproduction Commands
+```bash
+cd loanapp/backend
+
+# Optional: Regenerate the 5,000-row synthetic dataset
+python generate_dataset.py
+
+# Retrain models and write serialized artifacts and training_manifest.json
+python train_model.py
+```
+
+### Dataset Specifications
+Details recorded in `loanapp/backend/model/training_manifest.json` and `loanapp/backend/data_dictionary.json`:
+- File: `loanapp/backend/loan_dataset.csv`
+- Total Rows: 5,000 (Train: 4,000, Test: 1,000; random_seed=42)
+- Class Distribution: 3,773 Approved (Y) / 1,227 Rejected (N)
+- SHA-256 Checksum: `bf0cdb8d524888975f16cf42a5881f5ac311df11f561cb03ee060df81b2c3678`
+- Key Features: `ApplicantIncome` (INR/month), `CoapplicantIncome` (INR/month), `LoanAmount` (thousands of INR), `Loan_Amount_Term` (months), `Credit_History` (1 = meets guidelines, 0 = non-compliant), and demographics (`Gender`, `Married`, `Dependents`, `Education`, `Self_Employed`, `Property_Area`).
+
+## Automated Pipeline Verification
+
+The verification script `loanapp/backend/verify_connection.py` checks end-to-end data integrity:
+1. Dataset Schema: Confirms `loanapp/backend/loan_dataset.csv` contains 5,000 rows and matches `loanapp/backend/data_dictionary.json`.
+2. Cryptographic Checksum: Asserts the CSV SHA-256 hash matches `loanapp/backend/model/training_manifest.json`.
+3. Model Concordance: Runs inference across 200 holdout records to confirm accuracy and recall align within 1.5 percentage points of benchmark metrics.
+4. Mathematical Precision: Validates reducing-balance EMI formula against hand-calculated standards (₹1,50,000 at 8.5% for 360 months = ₹1,153.37).
+5. Metrics on Disk: Asserts stored metric numbers in `loanapp/backend/model/results_summary.json` match published values.
+
+Run verification:
+```bash
+python loanapp/backend/verify_connection.py
+```
+Status: All 5 test suites pass successfully (PASS).
+
+## Disclaimer
+
+This project is an educational demonstration developed for academic and portfolio purposes. It does not provide financial advice, and the underlying models and rules are not intended for production credit issuance or real lending decisions.

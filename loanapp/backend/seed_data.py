@@ -90,8 +90,9 @@ for i, (name, s) in enumerate(zip(NAMES, SCENARIOS)):
 # Sort records descending by created_at
 records.sort(key=lambda r: r["created_at"], reverse=True)
 
-apps_file = Path(__file__).parent.parent / "backend" / "data" / "applications.json"
-with open(apps_file, "w") as f:
+apps_file = Path(__file__).parent / "data" / "applications.json"
+apps_file.parent.mkdir(parents=True, exist_ok=True)
+with open(apps_file, "w", encoding="utf-8") as f:
     json.dump(records, f, indent=2)
 
 print(f"Generated {len(records)} realistic seed applications in {apps_file}")

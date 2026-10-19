@@ -3,3 +3,6 @@ __pycache__/
 .DS_Store
 .vscode/
 .idea/
+loanapp/backend/data/users.json
+loanapp/backend/data/applications.json
+~$*
